@@ -121,18 +121,18 @@
 
 <!-- marked.min.js - CDN -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="https://raw.githubusercontent.com/eKoopmans/html2pdf.js/master/dist/html2pdf.bundle.js"></script>
 <script>
 (() => {
   const editor = document.getElementById("editor");
-  const preview = document.getElementdById("preview");
+  const preview = document.getElementById("preview");
   const fileInput = document.getElementById("fileInput");
   const saveBtn = document.getElementById("saveBtn");
   const togglePreviewBtn = document.getElementById("togglePreviewBtn");
 
   const isFileSystemAccessAPISupported = 'showSaveFilePicker' in window;
-  let filename = `markdown-${new Date().toISOString().slice(0,10)}.md`;
-
+  //let filename = `markdown-${new Date().toISOString().slice(0,10)}.md`; -> 이 파일명을 사용할 일 없음.
+  let filename = null;
+  
   //const saveAsPdfBtn = document.getElementById("saveAsPdfBtn");
   
   // 기본 마크다운 샘플 텍스트
@@ -178,9 +178,11 @@
   // 파일 불러오기 (.md 만 허용)
   fileInput.addEventListener("change", e => {
     const file = e.target.files[0];
-    alert(file.name);
+    // file명을 미리 저장한다.
     if (!file) return;
-    if (!file.name.endsWith(".md")) {
+  	filename = file.name
+    console.log("현재 파일명 : "+filename);
+  	if (!file.name.endsWith(".md")) {
       alert(".md 확장자 파일만 선택하세요.");
       fileInput.value = "";
       return;
@@ -195,10 +197,14 @@
   });
 
   async function saveMarkdownWithPicker(content, suggestedName) {
+  if(suggestedName == null) {
+  	suggestedName = `md-${new Date().toISOString().slice(0, 10)}.md`;
+  	console.log("파일명이 null이라 다음으로 설정됨. : " + suggestedName);
+  }
+  
   if (!isFileSystemAccessAPISupported) {
     alert("이 브라우저에서는 고급 저장 기능이 지원되지 않아 기본 다운로드를 사용합니다.");
-    fallbackDownload(content, suggestedName);
-    return;
+    return fallbackDownload(content, suggestedName);
   }
 
   try {
@@ -212,8 +218,13 @@
     const handle = await window.showSaveFilePicker(options);
     const writable = await handle.createWritable();
     await writable.write(content);
+    const file = await handle.getFile();
+    const fileActualName = file.name;
+    alert("파일이 저장되었습니다 : " + fileActualName);
+    
     await writable.close();
-    alert("파일이 저장되었습니다.");
+    	
+    return fileActualName;
   } catch (e) {
     if (e.name !== 'AbortError') {
       alert("파일 저장 중 오류 발생: " + e.message);
@@ -230,15 +241,20 @@ function fallbackDownload(content, filename) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(a.href);
+  return filename;
 }
 
   // 작성중 내용 저장하기 (.md 파일로 다운로드)
   saveBtn.addEventListener("click", async () => {
   const text = editor.value;
-  await saveMarkdownWithPicker(text, filename);
-});
+  if (!filename) {
+    filename = `markdown-${new Date().toISOString().slice(0, 10)}.md`;
+  }
+  filename = await saveMarkdownWithPicker(text, filename);
+  console.log(filename);
+  });
     
-  togglePreview = () => {
+  const togglePreview = () => {
     if (preview.classList.contains("fullscreen")) {
       preview.classList.remove("fullscreen");
       // container 내부 비율 원복
@@ -246,7 +262,6 @@ function fallbackDownload(content, filename) {
       editor.style.width = "50%";
       preview.style.width = "50%";
       togglePreviewBtn.textContent = "🔍 전체화면";
-      backBtn.style.display = "none";
     } else {
       preview.classList.add("fullscreen");
       // 에디터 감추기
@@ -260,19 +275,19 @@ function fallbackDownload(content, filename) {
   // 초기값 셋팅 & 렌더링
   editor.value = defaultMd;
   refreshPreview();
-  
 
-//  savePdf = () => {
-//    html2pdf().from(preview).set({
-//      margin : 10,
-//      filename: window.prompt() + ".pdf",
-//      html2canvas: {scale : 1},
-//      jsPDF: {orientation: 'portrait', unit: 'mm', format: 'a4', compressPDF: true}
-//      }
-//    ).save();
-//  }
+  function saveWithKey(event) {
+    // 키 저장 기능 활성화.
+    if(event.ctrlKey && (event.key === 's' || event.key ==='S')) {
+     	if(filename == null) filename = `markdown-${new Date().toISOString().slice(0,10)}.md`;
+ 		fallbackDownload(editor.value, filename);
+    }
+  	event.stopPropagation();
+  	event.preventDefault();
+  }  
   
-  //saveAsPdfBtn.addEventListener("click", savePdf);
+  editor.addEventListener("keydown", saveWithKey); 
+  
 })();
 </script>
 
