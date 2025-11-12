@@ -197,6 +197,7 @@
   });
 
   async function saveMarkdownWithPicker(content, suggestedName) {
+  console.log("피커 실행됨");
   if(suggestedName == null) {
   	suggestedName = `md-${new Date().toISOString().slice(0, 10)}.md`;
   	console.log("파일명이 null이라 다음으로 설정됨. : " + suggestedName);
@@ -281,9 +282,9 @@ function fallbackDownload(content, filename) {
     if(event.ctrlKey && (event.key === 's' || event.key ==='S')) {
      	if(filename == null) filename = `markdown-${new Date().toISOString().slice(0,10)}.md`;
  		fallbackDownload(editor.value, filename);
+      event.stopPropagation();
+      event.preventDefault();
     }
-  	event.stopPropagation();
-  	event.preventDefault();
   }  
   
   editor.addEventListener("keydown", saveWithKey); 
