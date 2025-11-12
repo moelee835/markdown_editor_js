@@ -125,13 +125,13 @@
 <script>
 (() => {
   const editor = document.getElementById("editor");
-  const preview = document.getElementById("preview");
+  const preview = document.getElementdById("preview");
   const fileInput = document.getElementById("fileInput");
   const saveBtn = document.getElementById("saveBtn");
   const togglePreviewBtn = document.getElementById("togglePreviewBtn");
 
   const isFileSystemAccessAPISupported = 'showSaveFilePicker' in window;
-
+  let filename = `markdown-${new Date().toISOString().slice(0,10)}.md`;
 
   //const saveAsPdfBtn = document.getElementById("saveAsPdfBtn");
   
