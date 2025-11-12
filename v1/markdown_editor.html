@@ -178,6 +178,7 @@
   // 파일 불러오기 (.md 만 허용)
   fileInput.addEventListener("change", e => {
     const file = e.target.files[0];
+    alert(file.name);
     if (!file) return;
     if (!file.name.endsWith(".md")) {
       alert(".md 확장자 파일만 선택하세요.");
@@ -234,7 +235,6 @@ function fallbackDownload(content, filename) {
   // 작성중 내용 저장하기 (.md 파일로 다운로드)
   saveBtn.addEventListener("click", async () => {
   const text = editor.value;
-  const filename = `markdown-${new Date().toISOString().slice(0,10)}.md`;
   await saveMarkdownWithPicker(text, filename);
 });
     
