@@ -9,7 +9,7 @@
 
 
 ### Bug fix
-[Prevent Default에 의한 특수문자 입력 막힘]
+[Prevent Default에 의한 특수문자 입력 막힘 : 2025-11-13 08:55]
 
 기존 코드.
 ```html
