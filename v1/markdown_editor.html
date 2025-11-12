@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Markdown Editor & Viewer</title>
+<link rel="icon" href=".\static\img\markdown.PNG" type="image/x-icon" />
+<style>
+  /* 기본 레이아웃 */
+  html, body {
+    height: 100%;
+    margin: 0;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+  #toolbar {
+    background: #2d2d2d;
+    color: white;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  #toolbar > * {
+    cursor: pointer;
+  }
+  #container {
+    flex: 1;
+    display: flex;
+    height: calc(100% - 40px);
+    overflow: hidden;
+  }
+  #editor, #preview {
+    height: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid #ccc;
+    overflow: auto;
+  }
+  #editor {
+    width: 50%;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 16px;
+    resize: none;
+    outline: none;
+  }
+  #preview {
+    width: 50%;
+    background: white;
+  }
+  #preview.fullscreen {
+    position: fixed;
+    top: 91px; left: 0; right: 0; bottom: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 9999;
+    border: none;
+    padding: 20px;
+    overflow-y: auto;
+    background: white;
+  }
+  button {
+    background: #5a9bd4;
+    border: none;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 3px;
+    font-size: 14px;
+  }
+  button:active {
+    background: #427ab3;
+  }
+  
+  .backBtn {
+      opacity: 0.5;
+      display: none;
+      height: 50px;
+      width: 80px;
+      position: absolute;
+      z-index : 9999;
+      top:90%;
+      right:5%;
+      background: #FF0000;
+  }
+  input[type=file] {
+    display: none;
+  }
+  label[for=fileInput] {
+    background: #5a9bd4;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 3px;
+    font-size: 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <label for="fileInput" title=".md 파일 불러오기">📂 불러오기</label>
+  <input type="file" id="fileInput" accept=".md,text/markdown,text/plain" />
+  <button id="saveBtn" title="현재 마크다운 저장하기">💾 저장</button>
+  <button id="togglePreviewBtn" title="미리보기 전체화면 전환">🔍 전체화면</button>
+  <!-- <button id="saveAsPdfBtn" title="pdf로 다운로드">📕PDF로 저장</button> -->
+</div>
+
+<div id="container">
+  <textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" placeholder="Markdown 텍스트를 여기에 작성하세요..."></textarea>
+  <div id="preview" aria-live="polite" aria-label="Markdown 미리보기"></div>
+</div>
+
+<!-- marked.min.js - CDN -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://raw.githubusercontent.com/eKoopmans/html2pdf.js/master/dist/html2pdf.bundle.js"></script>
+<script>
+(() => {
+  const editor = document.getElementById("editor");
+  const preview = document.getElementById("preview");
+  const fileInput = document.getElementById("fileInput");
+  const saveBtn = document.getElementById("saveBtn");
+  const togglePreviewBtn = document.getElementById("togglePreviewBtn");
+
+  const isFileSystemAccessAPISupported = 'showSaveFilePicker' in window;
+
+
+  //const saveAsPdfBtn = document.getElementById("saveAsPdfBtn");
+  
+  // 기본 마크다운 샘플 텍스트
+  const defaultMd = `# Markdown Editor & Viewer
+
+- 왼쪽에 마크다운 입력
+- 오른쪽에 실시간 미리보기
+- 파일 불러오기 및 저장 가능
+- 미리보기 전체화면 토글
+
+---
+
+## 사용법
+
+1. Markdown을 입력하세요.
+2. 📂 불러오기 버튼으로 .md 파일을 불러올 수 있습니다.
+3. 💾 저장 버튼으로 작성한 내용을 .md 파일로 저장할 수 있습니다.
+4. 🔍 전체화면 버튼으로 미리보기를 브라우저 전체 화면으로 볼 수 있습니다.
+
+---
+
+> 회의 기록 또는 메모 작성시 더욱 편리하게 사용하세요!`;
+
+  // 마크다운 -> HTML 실시간 변환  
+  function refreshPreview() {
+    const mdText = editor.value;
+    try {
+      const html = marked.parse(mdText, { breaks: true, gfm: true });
+      preview.innerHTML = html;
+    } catch(e) {
+      preview.textContent = "Markdown 렌더링 중 오류가 발생했습니다.";
+      console.error(e);
+    }
+  }
+
+  // 변경 감지시 preview 갱신 (디바운싱)
+  let debounceTimer = null;
+  editor.addEventListener("input", () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(refreshPreview, 150);
+  });
+
+  // 파일 불러오기 (.md 만 허용)
+  fileInput.addEventListener("change", e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!file.name.endsWith(".md")) {
+      alert(".md 확장자 파일만 선택하세요.");
+      fileInput.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      editor.value = evt.target.result;
+      refreshPreview();
+      fileInput.value = "";
+    };
+    reader.readAsText(file);
+  });
+
+  async function saveMarkdownWithPicker(content, suggestedName) {
+  if (!isFileSystemAccessAPISupported) {
+    alert("이 브라우저에서는 고급 저장 기능이 지원되지 않아 기본 다운로드를 사용합니다.");
+    fallbackDownload(content, suggestedName);
+    return;
+  }
+
+  try {
+    const options = {
+      types: [{
+        description: 'Markdown 파일',
+        accept: { 'text/markdown': ['.md'] },
+      }],
+      suggestedName,
+    };
+    const handle = await window.showSaveFilePicker(options);
+    const writable = await handle.createWritable();
+    await writable.write(content);
+    await writable.close();
+    alert("파일이 저장되었습니다.");
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      alert("파일 저장 중 오류 발생: " + e.message);
+    }
+    // 저장 취소시 별도 처리 없음
+  }
+}
+
+// 폴백 다운로드 함수 (기존 코드)
+function fallbackDownload(content, filename) {
+  const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+  // 작성중 내용 저장하기 (.md 파일로 다운로드)
+  saveBtn.addEventListener("click", async () => {
+  const text = editor.value;
+  const filename = `markdown-${new Date().toISOString().slice(0,10)}.md`;
+  await saveMarkdownWithPicker(text, filename);
+});
+    
+  togglePreview = () => {
+    if (preview.classList.contains("fullscreen")) {
+      preview.classList.remove("fullscreen");
+      // container 내부 비율 원복
+      editor.style.display = "block";
+      editor.style.width = "50%";
+      preview.style.width = "50%";
+      togglePreviewBtn.textContent = "🔍 전체화면";
+      backBtn.style.display = "none";
+    } else {
+      preview.classList.add("fullscreen");
+      // 에디터 감추기
+      editor.style.display = "none";
+      preview.style.width = "100%";
+      togglePreviewBtn.textContent = "❌돌아가기"
+    }
+  }
+  // 미리보기 전체화면 토글
+  togglePreviewBtn.addEventListener("click", togglePreview);
+  // 초기값 셋팅 & 렌더링
+  editor.value = defaultMd;
+  refreshPreview();
+  
+
+//  savePdf = () => {
+//    html2pdf().from(preview).set({
+//      margin : 10,
+//      filename: window.prompt() + ".pdf",
+//      html2canvas: {scale : 1},
+//      jsPDF: {orientation: 'portrait', unit: 'mm', format: 'a4', compressPDF: true}
+//      }
+//    ).save();
+//  }
+  
+  //saveAsPdfBtn.addEventListener("click", savePdf);
+})();
+</script>
+
+</body>
+</html>
